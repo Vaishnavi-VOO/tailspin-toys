@@ -24,6 +24,44 @@ test.describe('Game Listing and Navigation', () => {
     });
   });
 
+  test('should filter games by multiple categories and publisher', async ({ page }) => {
+    await test.step('Navigate to homepage', async () => {
+      await page.goto('/');
+    });
+
+    const categoryFilter = page.getByLabel('Categories');
+    const publisherFilter = page.getByLabel('Publisher');
+    const visibleGameCards = page.locator('[data-testid="game-card"]:visible');
+    const allGameCount = await visibleGameCards.count();
+    const categoryValues = await categoryFilter.locator('option').evaluateAll((options) =>
+      options.slice(0, 2).map((option) => (option as HTMLOptionElement).value),
+    );
+    const publisherValue = await publisherFilter.locator('option').nth(1).getAttribute('value');
+
+    await test.step('Apply category and publisher filters', async () => {
+      await categoryFilter.selectOption(categoryValues);
+      await publisherFilter.selectOption(publisherValue ?? '');
+      await page.getByTestId('apply-filters').click();
+    });
+
+    await test.step('Verify filtered game results', async () => {
+      await expect(page.getByTestId('filter-status')).toHaveText(
+        `Showing 3 of ${allGameCount} games.`,
+      );
+      await expect(visibleGameCards).toHaveCount(3);
+      await expect(visibleGameCards.first().getByTestId('game-publisher'))
+        .toHaveText('CodeForge Studios');
+    });
+
+    await test.step('Reset filters', async () => {
+      await page.getByTestId('reset-filters').click();
+      await expect(page.getByTestId('filter-status')).toHaveText(
+        `Showing all ${allGameCount} games.`,
+      );
+      await expect(visibleGameCards).toHaveCount(allGameCount);
+    });
+  });
+
   test('should navigate to correct game details page when clicking on a game', async ({ page }) => {
     let gameId: string | null;
     let gameTitle: string | null;
